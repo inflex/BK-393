@@ -22,7 +22,7 @@ OFILES=
 
 default: 
 	@echo
-	@echo "   For OBS command line tool: make bk393"
+	@echo "   For OBS command line tool: make win-bk393"
 	@echo
 	@echo "   To make a GUI test, export FAKE_SERIAL=1 && make win-bk393"
 	@echo

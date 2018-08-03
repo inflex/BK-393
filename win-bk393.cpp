@@ -1,11 +1,10 @@
 /*
- * BK Precision Model 390A multimeter data stream reading software
+ * BK Precision Model 393 multimeter OBS display
  *
- * V0.1 - January 27, 2018
- * V0.2 - April 4, 2018
+ * V0.1 - August 4, 2018
+ * 
  *
  * Written by Paul L Daniels (pldaniels@gmail.com)
- * For Louis Rossmann (to facilitate meter display on OBS).
  *
  */
 
@@ -34,47 +33,6 @@
 #define BUILD_DATE " "
 #endif
 
-//char VERSION[] = BUILD_STR;
-#define BYTE_RANGE 0
-#define BYTE_DIGIT_3 1
-#define BYTE_DIGIT_2 2
-#define BYTE_DIGIT_1 3
-#define BYTE_DIGIT_0 4
-#define BYTE_FUNCTION 5
-#define BYTE_STATUS 6
-#define BYTE_OPTION_1 7
-#define BYTE_OPTION_2 8
-#define DATA_FRAME_SIZE 11 // 9 bytes followed by \r\n
-
-#define FUNCTION_VOLTAGE 0b00111011
-#define FUNCTION_CURRENT_UA 0b00111101
-#define FUNCTION_CURRENT_MA 0b00111001
-#define FUNCTION_CURRENT_A 0b00111111
-#define FUNCTION_OHMS 0b00110011
-#define FUNCTION_CONTINUITY 0b00110101
-#define FUNCTION_DIODE 0b00110001
-#define FUNCTION_FQ_RPM 0b00110010
-#define FUNCTION_CAPACITANCE 0b00110110
-#define FUNCTION_TEMPERATURE 0b00110100
-#define FUNCTION_ADP0 0b00111110
-#define FUNCTION_ADP1 0b00111100
-#define FUNCTION_ADP2 0b00111000
-#define FUNCTION_ADP3 0b00111010
-
-#define STATUS_OL 0x01
-#define STATUS_BATT 0x02
-#define STATUS_SIGN 0x04
-#define STATUS_JUDGE 0x08
-
-#define OPTION1_VAHZ 0x01
-#define OPTION1_PMIN 0x04
-#define OPTION1_PMAX 0x08
-
-#define OPTION2_APO 0x01
-#define OPTION2_AUTO 0x02
-#define OPTION2_AC 0x04
-#define OPTION2_DC 0x08
-
 #define WINDOWS_DPI_DEFAULT 72
 #define FONT_NAME_SIZE 1024
 #define SSIZE 1024
@@ -87,6 +45,53 @@
 #define DEFAULT_WINDOW_HEIGHT 9999
 #define DEFAULT_WINDOW_WIDTH 9999
 #define DEFAULT_COM_PORT 99
+
+#define DATA_FRAME_SIZE 10
+
+#define FN_OFF			0
+#define FN_ACV			1
+#define FN_DCV			2
+#define FN_ACMV		3
+#define FN_OHM			4
+#define FN_UF			5
+#define FN_HZ			6
+#define FN_ACUA		7
+#define FN_ACA			8
+#define FN_TEMPC		9
+#define FN_NULL		10
+#define FN_ACDCV		11
+#define FN_DCMV		12
+#define FN_ACDCMV		13
+#define FN_BZR			14
+#define FN_DIO			15
+#define FN_DCUA		16
+#define FN_DCMA		17
+#define FN_DCA			18
+#define FN_ACMA		19
+#define FN_TEMPF		20
+#define FN_NULL2		21
+#define FN_DUTY		22
+#define FN_ACDCUA		27
+#define FN_ACDCMA		28
+#define FN_ACDCA		29
+#define FN_NS			30
+
+struct meter_param {
+	wchar_t mode[20];
+	wchar_t units[20];
+	int dividers[8];
+};
+
+struct meter_param meter_parameters[] = {
+	{ L"",					L"",			{}},
+	{ L"AC Volts",			L"V",			{ 4, 3, 2, 1, 0, 0, 0 }},
+	{ L"DC Volts",			L"V",			{ 4, 3, 2, 1, 0, 0, 0 }},
+	{ L"AC mVolts",		L"mV",		{ 2 }},
+	{ L"Resistance",		L"R",			{ 2, 4, 3, 2, 4, 3 }},
+	{ L"Capacitance",		L"F",			{ 3, 2, 1, 3, 2, 1, 3 }},
+	{ L"Frequency",		L"Hz",		{ 3, 2, 4, 3, 2, 4, 3 }}
+};
+
 
 struct glb {
 	int window_x, window_y;
@@ -168,7 +173,7 @@ int init(struct glb *g) {
 }
 
 void show_help(void) {
-	wprintf(L"BK-Precision 390A Multimeter serial data decoder\r\n"
+	wprintf(L"BK-Precision 393 Multimeter serial data decoder\r\n"
 "By Paul L Daniels / pldaniels@gmail.com\r\n"
 "Build %d / %s\r\n"
 "\r\n"
@@ -376,10 +381,10 @@ void enable_coms(struct glb *pg, wchar_t *com_port) {
       exit(1);
    }
 
-   dcbSerialParams.BaudRate = CBR_2400;
-   dcbSerialParams.ByteSize = 7;
+   dcbSerialParams.BaudRate = CBR_9600;
+   dcbSerialParams.ByteSize = 8;
    dcbSerialParams.StopBits = ONESTOPBIT;
-   dcbSerialParams.Parity = ODDPARITY;
+   dcbSerialParams.Parity = NOPARITY;
 
    if (pg->serial_params[0] != '\0') {
       char *p = pg->serial_params;
@@ -519,21 +524,11 @@ bool auto_detect_port(struct glb *pg) {
                   wprintf(L"LENGTH CHECK: SUCCESS\r\n");
                }
                // #2 - check to see if the data fits the protocol
-               switch (d[BYTE_FUNCTION]) {
-                  case FUNCTION_VOLTAGE:
-                  case FUNCTION_CURRENT_UA:
-                  case FUNCTION_CURRENT_MA:
-                  case FUNCTION_CURRENT_A:
-                  case FUNCTION_OHMS:
-                  case FUNCTION_CONTINUITY:
-                  case FUNCTION_DIODE:
-                  case FUNCTION_FQ_RPM:
-                  case FUNCTION_CAPACITANCE:
-                  case FUNCTION_TEMPERATURE:
+					if ((d[0] == 0xF0) && (d[1] == 0x11)) {
                      if (pg->debug) {
                         wprintf(L"DATA FORMAT CHECK: SUCCESS\r\n");
                      }
-                     return true; // passed our check
+                    return true; // passed our check
                }
                
                if (pg->debug) {
@@ -571,6 +566,12 @@ bool auto_detect_port(struct glb *pg) {
    return false; // if we made it to the end of the function, auto-detection failed
 }
 
+uint8_t a2h( uint8_t a ) {
+	a -= 0x30;
+	if (a < 10) return a;
+	a -= 7;
+	return a;
+}
 /*-----------------------------------------------------------------\
   Date Code:	: 20180127-220307
   Function Name	: main
@@ -594,7 +595,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 	wchar_t units[SSIZE];  // Measurement units F, V, A, R
 	wchar_t mmmode[SSIZE]; // Multimeter mode, Resistance/diode/cap etc
 
-	uint8_t d[SSIZE];      // Serial data packet
+	uint8_t dfake[] = { 0xf0, 0x11, 0x02, 0x00, 0x44, 0x33, 0x44, 0x36, 0x00, 0x05 };
+	uint8_t d[SSIZE];
 	uint8_t dt[SSIZE];      // Serial data packet
 	int dt_loaded = 0;	// set when we have our first valid data
 	uint8_t dps = 0;     // Number of decimal places
@@ -608,6 +610,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 	char temp_char;        // Temporary character
 	DWORD bytes_read;      // Number of bytes read by ReadFile()
 	HDC dc;
+
+	/*
+struct meter_param {
+	char mode[20];
+	char units[20];
+	int dividers[8];
+};
+*/
+
 
 	glbs = &g;
 
@@ -628,7 +639,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 	 */
 	BBrush = CreateSolidBrush(g.background_color);
 	wc.style = CS_HREDRAW | CS_VREDRAW;
-	wc.lpszClassName = L"BK-390A Meter";
+	wc.lpszClassName = L"BK-393 Meter";
 	wc.hInstance = hInstance;
 	wc.hbrBackground = BBrush;
 	wc.lpfnWndProc = WindowProcedure;
@@ -640,7 +651,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 
 	RegisterClassW(&wc);
    
-   hstatic = CreateWindowW(wc.lpszClassName, L"BK-390A Meter", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 50, 50, g.window_x, g.window_y, NULL, NULL, hInstance, NULL);
+   hstatic = CreateWindowW(wc.lpszClassName, L"BK-393 Meter", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 50, 50, g.window_x, g.window_y, NULL, NULL, hInstance, NULL);
 
 	/*
 	 *
@@ -748,17 +759,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 			 */
 
 #if FAKE_SERIAL == 1
-            d[BYTE_RANGE] = 0x31; // 000.0 format in resistance mode
-            d[BYTE_DIGIT_3] = 0x34; // 4
-            d[BYTE_DIGIT_2] = 0x33; // 3
-            d[BYTE_DIGIT_1] = 0x32; // 2
-            d[BYTE_DIGIT_0] = 0x31; // 1
-            d[BYTE_FUNCTION] = 0x33; // resistance mode
-            d[BYTE_STATUS] = 0x30 | STATUS_SIGN; // no judge, no - sign, batt not low, not overloading
-            d[BYTE_OPTION_1] = 0x30;
-            d[BYTE_OPTION_2] = 0x30;
-				i = DATA_FRAME_SIZE;
-				usleep(500000);
+			i = DATA_FRAME_SIZE;
+			memcpy(d, dfake, 10);
+			usleep(500000);
 #else
 			if (g.debug) { wprintf(L"DATA START: "); }
 			end_of_frame_received = 0;
@@ -815,172 +818,45 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 			 * it's probably more human-readable to break it down in to longer code on a per
 			 * function selection.
 			 *
-			 */
-			switch (d[BYTE_FUNCTION]) {
-				case FUNCTION_VOLTAGE:
-					StringCbPrintf(units, sizeof(units), L"V");
-					StringCbPrintf(mmmode, sizeof(mmmode), L"Volts");
-
-					switch (d[BYTE_RANGE] & 0x0F) {
-						case 0:
-							dps = 1;
-							StringCbPrintf(prefix, sizeof(prefix), L"m");
-							break;
-						case 1: dps = 3; break;
-						case 2: dps = 2; break;
-						case 3: dps = 1; break;
-						case 4: dps = 0; break;
-					}      // test the range byte for voltages
-					break; // FUNCTION_VOLTAGE
-
-				case FUNCTION_CURRENT_UA:
-					StringCbPrintf(units, sizeof(units), L"A");
-					StringCbPrintf(prefix, sizeof(prefix), L"\u00B5");
-					StringCbPrintf(mmmode, sizeof(mmmode), L"Amps");
-
-					switch (d[BYTE_RANGE] & 0x0F) {
-						case 0: dps = 1; break;
-						case 1: dps = 0; break;
-					}
-					break; // FUNCTION_CURRENT_UA
-
-				case FUNCTION_CURRENT_MA:
-					StringCbPrintf(units, sizeof(units), L"A");
-					StringCbPrintf(prefix, sizeof(prefix), L"m");
-					StringCbPrintf(mmmode, sizeof(mmmode), L"Amps");
-
-					switch (d[BYTE_RANGE] & 0x0F) {
-						case 0: dps = 2; break;
-						case 1: dps = 1; break;
-					}
-					break; // FUNCTION_CURRENT_MA
-
-				case FUNCTION_CURRENT_A:
-					StringCbPrintf(units, sizeof(units), L"A");
-					StringCbPrintf(mmmode, sizeof(mmmode), L"Amps");
-					dps = 2;
-					break; // FUNCTION_CURRENT_A
-
-				case FUNCTION_OHMS:
-					StringCbPrintf(mmmode, sizeof(mmmode), L"Resistance");
-					StringCbPrintf(units, sizeof(units), L"\u2126");
-
-					switch (d[BYTE_RANGE] & 0x0F) {
-						case 0: dps = 1; break;
-						case 1: dps = 3; StringCbPrintf(prefix, sizeof(prefix), L"k"); break;
-						case 2: dps = 2; StringCbPrintf(prefix, sizeof(prefix), L"k"); break;
-						case 3: dps = 1; StringCbPrintf(prefix, sizeof(prefix), L"k"); break;
-						case 4: dps = 3; StringCbPrintf(prefix, sizeof(prefix), L"M"); break;
-						case 5: dps = 2; StringCbPrintf(prefix, sizeof(prefix), L"M"); break;
-					}
-					break; // FUNCTION_OHMS
-
-				case FUNCTION_CONTINUITY:
-					StringCbPrintf(mmmode, sizeof(mmmode), L"Continuity");
-					StringCbPrintf(units, sizeof(units), L"\u2126");
-					dps = 1;
-					break; // FUNCTION_CONTINUITY
-
-				case FUNCTION_DIODE:
-					StringCbPrintf(mmmode, sizeof(mmmode), L"DIODE");
-					StringCbPrintf(units, sizeof(units), L"V");
-					dps = 3;
-					break; // FUNCTION_DIODE
-
-				case FUNCTION_FQ_RPM:
-					if (!(d[BYTE_STATUS] & STATUS_JUDGE)) {
-						StringCbPrintf(mmmode, sizeof(mmmode), L"Frequency");
-						StringCbPrintf(units, sizeof(units), L"Hz");
-						switch (d[BYTE_RANGE] & 0x0F) {
-							case 0: dps = 3; StringCbPrintf(prefix, sizeof(prefix), L"k"); break;
-							case 1: dps = 2; StringCbPrintf(prefix, sizeof(prefix), L"k"); break;
-							case 2: dps = 1; StringCbPrintf(prefix, sizeof(prefix), L"k"); break;
-							case 3: dps = 3; StringCbPrintf(prefix, sizeof(prefix), L"M"); break;
-							case 4: dps = 2; StringCbPrintf(prefix, sizeof(prefix), L"M"); break;
-							case 5: dps = 1; StringCbPrintf(prefix, sizeof(prefix), L"M"); break;
-						} // switch
-
-					} else {
-						StringCbPrintf(mmmode, sizeof(mmmode), L"RPM");
-						StringCbPrintf(units, sizeof(units), L"rpm");
-						switch (d[BYTE_RANGE] & 0x0F) {
-							case 0: dps = 2; StringCbPrintf(prefix, sizeof(prefix), L"k"); break;
-							case 1: dps = 1; StringCbPrintf(prefix, sizeof(prefix), L"k"); break;
-							case 2: dps = 3; StringCbPrintf(prefix, sizeof(prefix), L"M"); break;
-							case 3: dps = 2; StringCbPrintf(prefix, sizeof(prefix), L"M"); break;
-							case 4: dps = 1; StringCbPrintf(prefix, sizeof(prefix), L"M"); break;
-							case 5: dps = 0; StringCbPrintf(prefix, sizeof(prefix), L"M"); break;
-						} // switch
-					}
-					break; // FUNCTION_FQ_RPM
-
-				case FUNCTION_CAPACITANCE:
-					StringCbPrintf(mmmode, sizeof(mmmode), L"Capacitance");
-					StringCbPrintf(units, sizeof(units), L"F");
-					switch (d[BYTE_RANGE] & 0x0F) {
-						case 0: dps = 3; StringCbPrintf(prefix, sizeof(prefix), L"n"); break;
-						case 1: dps = 2; StringCbPrintf(prefix, sizeof(prefix), L"n"); break;
-						case 2: dps = 1; StringCbPrintf(prefix, sizeof(prefix), L"n"); break;
-						case 3: dps = 3; StringCbPrintf(prefix, sizeof(prefix), L"\u00B5"); break;
-						case 4: dps = 2; StringCbPrintf(prefix, sizeof(prefix), L"\u00B5"); break;
-						case 5: dps = 1; StringCbPrintf(prefix, sizeof(prefix), L"\u00B5"); break;
-						case 6: dps = 3; StringCbPrintf(prefix, sizeof(prefix), L"m"); break;
-						case 7: dps = 2; StringCbPrintf(prefix, sizeof(prefix), L"m"); break;
-					}
-					break; // FUNCTION_CAPACITANCE
-
-				case FUNCTION_TEMPERATURE:
-					StringCbPrintf(mmmode, sizeof(mmmode), L"Temperature");
-					if (d[BYTE_STATUS] & STATUS_JUDGE) {
-						StringCbPrintf(units, sizeof(units), L"\u00B0C");
-					} else {
-						StringCbPrintf(units, sizeof(units), L"\u00B0F");
-					}
-					dps = 0;
-					break; // FUNCTION_TEMPERATURE
-			}
-
-			/*
-			 * Decode the digit data in to human-readable
-			 *
-			 * bytes 1..4 are ASCII char codes for 0000-9999
+			 * linetmp : contains the value we want show
+			 * mmode   : contains the meter mode (resistance, volts, amps etc)
+			 *  L"\u00B0C" = 'C
+			 *  L"\u00B0F" = 'F
+			 *  L"\u2126"  = ohms char
+			 *  L"\u00B5"  = mu char (micro)
 			 *
 			 */
-			v = ((d[1] & 0x0F) * 1000) 
-				+ ((d[2] & 0x0F) * 100) 
-				+ ((d[3] & 0x0F) * 10) 
-				+ ((d[4] & 0x0F) * 1);
 
-			/*
-			 * Sign of output (+/-)
-			 */
-			if (d[BYTE_STATUS] & STATUS_SIGN) {
-				v = -v;
-			}
 
-			/*
-			 * If we're not showing the meter mode, then just
-			 * zero the string we generated previously
-			 */
-			if (g.show_mode == 0) {
-				mmmode[0] = 0;
-			}
+			{
+				double value = 0;
+				int dp = 0;
+				d[4] = a2h(d[4]); // convert FROM ascii representation to hex value, ie, 'A' -> 0x0a
+				d[5] = a2h(d[5]); // convert FROM ascii representation to hex value, ie, 'A' -> 0x0a
+				d[6] = a2h(d[6]); // convert FROM ascii representation to hex value, ie, 'A' -> 0x0a
+				d[7] = a2h(d[7]); // convert FROM ascii representation to hex value, ie, 'A' -> 0x0a
+				fprintf(stderr,"%x %x %x %x\r\n",  d[7], d[6], d[5], d[4]);
+				value = ((d[8] &0x0F)<<16) +(d[7] <<12) +(d[6] <<8) +(d[5]<<4) +(d[4]);
 
-			/** range checks **/
-			if ((d[BYTE_STATUS] & STATUS_OL) == 1) {
-				StringCbPrintf(linetmp, sizeof(linetmp), L"O.L.");
-
-			} else {
-				if (dps < 0) dps = 0;
-				if (dps > 3) dps = 3;
-
-				switch (dps) {
-					case 0: StringCbPrintf(linetmp, sizeof(linetmp), L"% 05.0f%s%s", v, prefix, units); break;
-					case 1: StringCbPrintf(linetmp, sizeof(linetmp), L"% 06.1f%s%s", v / 10, prefix, units); break;
-					case 2: StringCbPrintf(linetmp, sizeof(linetmp), L"% 06.2f%s%s", v / 100, prefix, units); break;
-					case 3: StringCbPrintf(linetmp, sizeof(linetmp), L"% 06.3f%s%s", v / 1000, prefix, units); break;
+				if (d[8] & 0x10) value = -value; // polarity
+				
+				dp = meter_parameters[d[2]].dividers[d[3]];
+				switch (dp) {
+					case 1: value /= 10; break;
+					case 2: value /= 100; break;
+					case 3: value /= 1000; break;
+					case 4: value /= 10000; break;
 				}
+
+				StringCbPrintf(linetmp, sizeof(linetmp), L"%+0.*f%s", dp,  value, meter_parameters[d[2]].units);
+				StringCbPrintf(mmmode, sizeof(mmmode), L"%s", meter_parameters[d[2]].mode);
 			}
+
+			/*
+			 *
+			 * END OF DECODING
+			 */
+
 		} // if com-read status == TRUE
 
 		StringCbPrintf(line1, sizeof(line1), L"%-40s", linetmp);
