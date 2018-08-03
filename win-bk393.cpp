@@ -76,20 +76,40 @@
 #define FN_ACDCA		29
 #define FN_NS			30
 
+#define ee L""
+#define uu L"\u00B5"
+#define kk L"k"
+#define MM L"M"
+#define mm L"m"
+#define nn L"n"
+#define pp L"p"
+
 struct meter_param {
 	wchar_t mode[20];
 	wchar_t units[20];
 	int dividers[8];
+	wchar_t prefix[8][2];
 };
 
+			 /*  L"\u00B0C" = 'C
+			 *  L"\u00B0F" = 'F
+			 *  L"\u2126"  = ohms char
+			 *  L"\u00B5"  = mu char (micro)
+			 */
+
 struct meter_param meter_parameters[] = {
-	{ L"",					L"",			{}},
+	{ L"",					L" ",			{}},
 	{ L"AC Volts",			L"V",			{ 4, 3, 2, 1, 0, 0, 0 }},
 	{ L"DC Volts",			L"V",			{ 4, 3, 2, 1, 0, 0, 0 }},
-	{ L"AC mVolts",		L"mV",		{ 2 }},
-	{ L"Resistance",		L"R",			{ 2, 4, 3, 2, 4, 3 }},
-	{ L"Capacitance",		L"F",			{ 3, 2, 1, 3, 2, 1, 3 }},
-	{ L"Frequency",		L"Hz",		{ 3, 2, 4, 3, 2, 4, 3 }}
+	{ L"AC mVolts",		L"V",		{ 2 }},
+	{ L"Resistance",		L"\u2126",			{ 2, 4, 3, 2, 4, 3 },		{ ee, kk, kk, kk, MM, MM }},
+	{ L"Capacitance",		L"F",			{ 3, 2, 1, 3, 2, 1, 3 },	{ nn, nn, nn, uu, uu, uu, mm}},
+	{ L"Frequency",		L"Hz",		{ 3, 2, 4, 3, 2, 4, 3 },		{ ee, ee, kk, kk, kk, MM, MM}},
+	{ L"AC Amps",			L"A",		{ 2, 1 }},
+	{ L"AC Amps",			L"A",		{ 0, 3 }},
+	{ L"Temperature",		L"\u00B0C",		{ 0, 1 }},
+	{ },
+	{ L"AC+DCVolts",		L" V",		{ 4, 3, 2, 1 } },
 };
 
 
@@ -595,7 +615,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 	wchar_t units[SSIZE];  // Measurement units F, V, A, R
 	wchar_t mmmode[SSIZE]; // Multimeter mode, Resistance/diode/cap etc
 
-	uint8_t dfake[] = { 0xf0, 0x11, 0x02, 0x00, 0x44, 0x33, 0x44, 0x36, 0x00, 0x05 };
+	//uint8_t dfake[] = { 0xf0, 0x11, 0x02, 0x00, 0x44, 0x33, 0x44, 0x36, 0x00, 0x05 };
+	uint8_t dfake[] = { 0xf0, 0x11, 0x04, 0x02, 0x44, 0x33, 0x44, 0x36, 0x00, 0x05 };
 	uint8_t d[SSIZE];
 	uint8_t dt[SSIZE];      // Serial data packet
 	int dt_loaded = 0;	// set when we have our first valid data
@@ -848,7 +869,7 @@ struct meter_param {
 					case 4: value /= 10000; break;
 				}
 
-				StringCbPrintf(linetmp, sizeof(linetmp), L"%+0.*f%s", dp,  value, meter_parameters[d[2]].units);
+				StringCbPrintf(linetmp, sizeof(linetmp), L"% 0.*f%s%s", dp,  value, meter_parameters[d[2]].prefix[d[3]], meter_parameters[d[2]].units);
 				StringCbPrintf(mmmode, sizeof(mmmode), L"%s", meter_parameters[d[2]].mode);
 			}
 
