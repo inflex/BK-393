@@ -1,0 +1,3 @@
+Windows version:
+- Add stroked outline to text so that it can be used in OBS
+	with a chromakey and not look too awful
