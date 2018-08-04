@@ -83,6 +83,7 @@
 #define mm L"m"
 #define nn L"n"
 #define pp L"p"
+#define dd L"\u00B0"
 
 struct meter_param {
 	wchar_t mode[20];
@@ -105,11 +106,30 @@ struct meter_param meter_parameters[] = {
 	{ L"Resistance",		L"\u2126",			{ 2, 4, 3, 2, 4, 3 },		{ ee, kk, kk, kk, MM, MM }},
 	{ L"Capacitance",		L"F",			{ 3, 2, 1, 3, 2, 1, 3 },	{ nn, nn, nn, uu, uu, uu, mm}},
 	{ L"Frequency",		L"Hz",		{ 3, 2, 4, 3, 2, 4, 3 },		{ ee, ee, kk, kk, kk, MM, MM}},
-	{ L"AC Amps",			L"A",		{ 2, 1 }},
+	{ L"AC Amps",			L"A",		{ 2, 1 }, { uu, uu } },
 	{ L"AC Amps",			L"A",		{ 0, 3 }},
-	{ L"Temperature",		L"\u00B0C",		{ 0, 1 }},
+	{ L"Temperature",		L"C",		{ 0, 1 }, { dd, dd } },
 	{ },
-	{ L"AC+DCVolts",		L" V",		{ 4, 3, 2, 1 } },
+	{ L"AC+DC Volts",		L"V",		{ 4, 3, 2, 1 },  },
+	{ L"DC Volts",			L"V",		{ 2 }, { mm } },
+	{ L"AC+DC Volts",		L"V",		{ 2 }, { mm } },
+	{ L"Continuity",		L"\u2126",	{ 2 } },
+	{ L"Diode",				L"V",		{ 4 } },
+	{ L"DC Amps",			L"A",		{ 2, 1 }, { uu, uu } },
+	{ L"DC Amps",			L"A",		{ 3, 2 }, { mm, mm } },
+	{ L"DC Amps",			L"A",		{ 0, 3 } },
+	{ L"AC Amps",			L"A",		{ 3, 2 }, { mm, mm } },
+	{ L"Temperature",		L"F",		{ 0, 1 }, { dd, dd } },
+	{ },
+	{ L"Duty",				L"%",	{ 1 } },
+	{ },
+	{ },
+	{ },
+	{ },
+	{ L"AC+DC Amps",		L"A",		{ 2, 1 }, { uu, uu } },
+	{ L"AC+DC Amps",		L"A",		{ 3, 2 }, { mm, mm } },
+	{ L"AC+DC Amps",		L"A",		{ 0, 3 } },
+	{ L"Conductivity",	L"S",		{ 2 }, { nn } }
 };
 
 
