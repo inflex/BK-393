@@ -817,7 +817,7 @@ struct meter_param {
 
 			      i++;
 
-					if (temp_char == '\n') {
+					if (temp_char == 0x05) {
 						end_of_frame_received = 1;
 						break;
 					}
