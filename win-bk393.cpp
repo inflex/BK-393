@@ -549,7 +549,7 @@ bool auto_detect_port(struct glb *pg) {
                if (pg->debug) { wprintf(L"%02x ", d[i]); }
                i++;
                
-               if (temp_char == '\n') {
+               if (temp_char == 0x05) {
                   end_of_frame_received = 1;
                   break;
                }
