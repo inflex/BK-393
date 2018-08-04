@@ -213,7 +213,7 @@ int init(struct glb *g) {
 }
 
 void show_help(void) {
-	wprintf(L"BK-Precision 393 Multimeter serial data decoder\r\n"
+	wprintf(L"BK-Precision BK-393 Multimeter serial data decoder\r\n"
 "By Paul L Daniels / pldaniels@gmail.com\r\n"
 "Build %d / %s\r\n"
 "\r\n"
@@ -234,9 +234,9 @@ void show_help(void) {
 "\t-q: quiet output\r\n"
 "\t-v: show version\r\n"
 "\r\n"
-"\tDefaults: -s 2400:7o1 -z 72 -fc #10ff10 -bc #000000 -fw 600\r\n"
+"\tDefaults: -s 9600:8n1 -z 72 -fc #10ff10 -bc #000000 -fw 600\r\n"
 "\r\n"
-"\texample: bk390a.exe -z 120 -p 4 -s 2400:7o1 -m -fc #10ff10 -bc #000000 -wx 480 -wy 60 -fw 600\r\n"
+"\texample: win-bk393.exe -z 120 -p 4 -s 9600:8n1 -m -fc #10ff10 -bc #000000 -wx 480 -wy 60 -fw 600\r\n"
 		, BUILD_VER
 		, BUILD_DATE 
 		);
