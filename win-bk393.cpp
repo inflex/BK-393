@@ -635,8 +635,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR lpCmdLin
 	wchar_t units[SSIZE];  // Measurement units F, V, A, R
 	wchar_t mmmode[SSIZE]; // Multimeter mode, Resistance/diode/cap etc
 
-	//uint8_t dfake[] = { 0xf0, 0x11, 0x02, 0x00, 0x44, 0x33, 0x44, 0x36, 0x00, 0x05 };
-	uint8_t dfake[] = { 0xf0, 0x11, 0x04, 0x02, 0x44, 0x33, 0x44, 0x36, 0x00, 0x05 };
+	//uint8_t dfake[] = { 0xf0, 0x11, 0x02, 0x00, 0x44, 0x33, 0x44, 0x36, 0x00, 0x05 }; // 2.7965V [ DC Volts ]
+	//uint8_t dfake[] = { 0xf0, 0x11, 0x04, 0x02, 0x44, 0x33, 0x44, 0x36, 0x00, 0x05 }; // 27.965kOhms [ Resistance ]
+	uint8_t dfake[] = { 0xf0, 0x11, 0x04, 0x02, 0x44, 0x33, 0x44, 0x36, 0x10, 0x05 }; // -27.965kOhms [ Resistance ]
+
 	uint8_t d[SSIZE];
 	uint8_t dt[SSIZE];      // Serial data packet
 	int dt_loaded = 0;	// set when we have our first valid data
@@ -876,7 +878,7 @@ struct meter_param {
 				d[5] = a2h(d[5]); // convert FROM ascii representation to hex value, ie, 'A' -> 0x0a
 				d[6] = a2h(d[6]); // convert FROM ascii representation to hex value, ie, 'A' -> 0x0a
 				d[7] = a2h(d[7]); // convert FROM ascii representation to hex value, ie, 'A' -> 0x0a
-				fprintf(stderr,"%x %x %x %x\r\n",  d[7], d[6], d[5], d[4]);
+				if (g.debug) fprintf(stderr,"Digit data: [%02x] [%02x %02x] [%02x %02x]\r\n", d[8] & 0x0F,  d[7], d[6], d[5], d[4]);
 				value = ((d[8] &0x0F)<<16) +(d[7] <<12) +(d[6] <<8) +(d[5]<<4) +(d[4]);
 
 				if (d[8] & 0x10) value = -value; // polarity
@@ -890,7 +892,7 @@ struct meter_param {
 				}
 
 				StringCbPrintf(linetmp, sizeof(linetmp), L"% 0.*f%s%s", dp,  value, meter_parameters[d[2]].prefix[d[3]], meter_parameters[d[2]].units);
-				StringCbPrintf(mmmode, sizeof(mmmode), L"%s", meter_parameters[d[2]].mode);
+				StringCbPrintf(mmmode, sizeof(mmmode), L"V.%03d %s", BUILD_VER, meter_parameters[d[2]].mode);
 			}
 
 			/*
@@ -902,7 +904,7 @@ struct meter_param {
 
 		StringCbPrintf(line1, sizeof(line1), L"%-40s", linetmp);
 		StringCbPrintf(line2, sizeof(line2), L"%-40s", mmmode);
-		StringCbPrintf(line3, sizeof(line3), L"V.%03d", BUILD_VER);
+//		StringCbPrintf(line3, sizeof(line3), L"V.%03d", BUILD_VER);
 		InvalidateRect(hstatic, NULL, FALSE);
       UpdateWindow(hstatic);
 
@@ -937,8 +939,8 @@ LRESULT CALLBACK WindowProcedure(HWND hwnd, UINT message, WPARAM wParam, LPARAM 
 			holdFont = (HFONT)SelectObject(hdc, hFontBg);
 			TextOutW(hdc, smallfontmetrics.tmAveCharWidth, fontmetrics.tmAscent * 1.1, line2, wcslen(line2));
 
-			holdFont = (HFONT)SelectObject(hdc, hFontBg);
-			TextOutW(hdc,  (wrect.right -wrect.left) -(smallfontmetrics.tmAveCharWidth *9), fontmetrics.tmAscent * 1.1, line3, wcslen(line3));
+//			holdFont = (HFONT)SelectObject(hdc, hFontBg);
+//			TextOutW(hdc,  (wrect.right -wrect.left) -(smallfontmetrics.tmAveCharWidth *9), fontmetrics.tmAscent * 1.1, line3, wcslen(line3));
 
 			EndPaint(hwnd, &ps);
 			break;
